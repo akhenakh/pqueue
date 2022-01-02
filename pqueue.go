@@ -30,6 +30,7 @@ func New() *PriorityQueue {
 	return pq
 }
 
+// Push pushes a value into the queue with a priority
 func (pq *PriorityQueue) Push(priority int, value interface{}) {
 	item := &priorityQueueItem{
 		value:    value,
@@ -39,6 +40,7 @@ func (pq *PriorityQueue) Push(priority int, value interface{}) {
 	heap.Push(&pq.items, item)
 }
 
+// Pop returns values sorted by priority, nil on empty
 func (pq *PriorityQueue) Pop() interface{} {
 	item := heap.Pop(&pq.items)
 	if item == nil {
