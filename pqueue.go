@@ -1,91 +1,107 @@
-// Package pqueue provides a very simple priority queue
-// It's basically copy and paste from the heap package example, only to override the Push method.
 package pqueue
 
-import "container/heap"
+import (
+	"cmp"
+	"container/heap"
+)
 
-// A PriorityQueue (simple wrap to override Push)
-type PriorityQueue struct {
-	items priorityQueueItems
+// Package pqueue implements a generic priority queue data structure using a max-heap.
+//
+// The priority queue maintains elements in descending order of priority, where the
+// element with the highest priority value is always at the front of the queue.
+// Each element consists of two components:
+//   - A value of any type T
+//   - A priority of any ordered type P (numbers, strings, etc.)
+//
+// The implementation uses Go's container/heap package internally, providing O(log n)
+// time complexity for Push and Pop operations, and O(1) for Peek and Len operations.
+//
+// Example usage:
+//
+//	pq := pqueue.New[string, int]()
+//	pq.Push("task1", 3)
+//	pq.Push("task2", 1)
+//	pq.Push("task3", 4)
+//
+//	value, priority, ok := pq.Pop() // Returns "task3", 4, true
+//
+// All operations are safe to use with empty queues, returning appropriate zero
+// values and a boolean false when attempting to access empty queues.
+
+// PriorityQueue represents a max-heap implementation of a priority queue.
+type PriorityQueue[T any, P cmp.Ordered] struct {
+	items *itemHeap[T, P]
 }
 
-// implements heap.Interface and holds Items.
-type priorityQueueItems []*priorityQueueItem
-
-// An priorityQueueItem is something we manage in a priority queue.
-type priorityQueueItem struct {
-	value    interface{} // The value of the item; arbitrary.
-	priority int         // The priority of the item in the queue.
-	// The index is needed by update and is maintained by the heap.Interface methods.
-	index int // The index of the item in the heap.
+// item represents a single element in the priority queue.
+type item[T any, P cmp.Ordered] struct {
+	value    T
+	priority P
 }
 
-// New returns a new PriorityQueue ready to be used
-func New() *PriorityQueue {
-	pq := &PriorityQueue{
-		items: make(priorityQueueItems, 0),
-	}
-	heap.Init(&pq.items)
+// itemHeap implements heap.Interface
+type itemHeap[T any, P cmp.Ordered] []item[T, P]
 
-	return pq
+func (h itemHeap[T, P]) Len() int           { return len(h) }
+func (h itemHeap[T, P]) Less(i, j int) bool { return h[i].priority > h[j].priority } // Max heap
+func (h itemHeap[T, P]) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *itemHeap[T, P]) Push(x any) {
+	*h = append(*h, x.(item[T, P]))
 }
 
-// Push pushes a value into the queue with a priority
-func (pq *PriorityQueue) Push(priority int, value interface{}) {
-	item := &priorityQueueItem{
-		value:    value,
-		priority: priority,
-	}
-
-	heap.Push(&pq.items, item)
-}
-
-// Pop returns values sorted by priority, nil on empty
-func (pq *PriorityQueue) Pop() interface{} {
-	item := heap.Pop(&pq.items)
-	if item == nil {
-		return nil
-	}
-	pqi := item.(*priorityQueueItem)
-
-	return pqi.value
-}
-
-func (items priorityQueueItems) Len() int { return len(items) }
-
-func (items priorityQueueItems) Less(i, j int) bool {
-	// We want Pop to give us the highest, not lowest, priority so we use greater than here.
-	return items[i].priority > items[j].priority
-}
-
-func (items priorityQueueItems) Swap(i, j int) {
-	// since we don't want to panic check boundaries first
-	// priorityQueueItems is not meant to be reused
-	if j <0 || i < 0 {
-		return
-	}
-	items[i], items[j] = items[j], items[i]
-	items[i].index = i
-	items[j].index = j
-}
-
-func (items *priorityQueueItems) Push(x interface{}) {
-	n := len(*items)
-	item := x.(*priorityQueueItem)
-	item.index = n
-	*items = append(*items, item)
-}
-
-func (items *priorityQueueItems) Pop() interface{} {
-	old := *items
+func (h *itemHeap[T, P]) Pop() any {
+	old := *h
 	n := len(old)
-	if n == 0 {
-		return nil
-	}
-	item := old[n-1]
-	old[n-1] = nil  // avoid memory leak
-	item.index = -1 // for safety
-	*items = old[0 : n-1]
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
 
-	return item
+// New creates a new empty priority queue.
+func New[T any, P cmp.Ordered]() *PriorityQueue[T, P] {
+	items := &itemHeap[T, P]{}
+	heap.Init(items)
+	return &PriorityQueue[T, P]{
+		items: items,
+	}
+}
+
+// Push adds a new element to the priority queue.
+func (pq *PriorityQueue[T, P]) Push(value T, priority P) {
+	heap.Push(pq.items, item[T, P]{value: value, priority: priority})
+}
+
+// Pop removes and returns the highest priority element.
+// Returns zero values and false if the queue is empty.
+func (pq *PriorityQueue[T, P]) Pop() (T, P, bool) {
+	if pq.IsEmpty() {
+		var zero T
+		var zeroP P
+		return zero, zeroP, false
+	}
+	item := heap.Pop(pq.items).(item[T, P])
+	return item.value, item.priority, true
+}
+
+// Peek returns the highest priority element without removing it.
+// Returns zero values and false if the queue is empty.
+func (pq *PriorityQueue[T, P]) Peek() (T, P, bool) {
+	if pq.IsEmpty() {
+		var zero T
+		var zeroP P
+		return zero, zeroP, false
+	}
+	item := (*pq.items)[0]
+	return item.value, item.priority, true
+}
+
+// Len returns the number of elements in the queue.
+func (pq *PriorityQueue[T, P]) Len() int {
+	return pq.items.Len()
+}
+
+// IsEmpty returns true if the queue has no elements.
+func (pq *PriorityQueue[T, P]) IsEmpty() bool {
+	return pq.Len() == 0
 }
