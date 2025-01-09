@@ -1,10 +1,3 @@
-package pqueue
-
-import (
-	"cmp"
-	"container/heap"
-)
-
 // Package pqueue implements a generic priority queue data structure using a max-heap.
 //
 // The priority queue maintains elements in descending order of priority, where the
@@ -27,6 +20,12 @@ import (
 //
 // All operations are safe to use with empty queues, returning appropriate zero
 // values and a boolean false when attempting to access empty queues.
+package pqueue
+
+import (
+	"cmp"
+	"container/heap"
+)
 
 // PriorityQueue represents a max-heap implementation of a priority queue.
 type PriorityQueue[T any, P cmp.Ordered] struct {
